@@ -4,7 +4,6 @@ const { useState, useCallback, useEffect } = React;
 const Input = React.memo(({ type, label, name, value, onChange, ...rest }) => (
   <div>
     <label>{label}</label>
-    <br />
     <input type={type} name={name} value={value} onChange={ev => onChange(ev.target.value)} {...rest} />
   </div>
 ));
@@ -15,10 +14,10 @@ const Form = (props) => {
   const [date, onDateChange] = useState(props.date);
   const onLocalSubmit = useCallback((e) => {
     e.preventDefault();
-    props.onSubmit({ descr, date });
+    props.onSubmit({ descr, date, id: props.id });
     onDescrChange('');
     onDateChange('');
-  }, [descr, date]);
+  }, [descr, date, props.id]);
   const onCancel = () => {
     onDescrChange('');
     onDateChange('');
@@ -29,32 +28,59 @@ const Form = (props) => {
       <h3>{props.title}</h3>
       <Input name="descr" onChange={onDescrChange} value={descr} label="Description" required />
       <Input name="date" onChange={onDateChange} value={date} label="Date" type="date" required />
-      <button type="submit">Save</button>
-      <button type="reset" onClick={onCancel}>Cancel</button>
+      <div class="clearfix">
+        <div class="float-right">
+          <button class="button button-clear" type="reset" onClick={onCancel}>Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </div>
     </form>
   );
 };
 Form.defaultProps = { descr: '', date: '', onSubmit: () => {} };
 
 const ListItem = ({ item, onEdit, onDelete }) => (
-  <li>
-    <button onClick={() => onEdit(item)}>&#10000;</button>&nbsp;|&nbsp;
-    <button onClick={() => onDelete(item)}>&#128465;</button>&nbsp;|&nbsp;
-    <span>{item.date} | {item.descr}</span>
-  </li>
+  <tr>
+    <td>{item.date}</td>
+    <td>{item.descr}</td>
+    <td>
+      <button
+        class="button button-outline"
+        onClick={() => onEdit(item)}
+      >
+        &#10000;
+      </button>
+      &nbsp;|&nbsp;
+      <button
+        class="button button-outline"
+        onClick={() => onDelete(item)}
+      >
+        &#128465;
+      </button>
+    </td>
+  </tr>
 );
 
 const List = ({ list, onEdit, onDelete }) => (
-  <ul>
-    {list.map((it) =>
-      <ListItem
-        key={it.date}
-        item={it}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
-    )}
-  </ul>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {list.map((it) =>
+        <ListItem
+          key={it.id}
+          item={it}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      )}
+    </tbody>
+  </table>
 );
 
 const Maybe = ({ component: Component, visible, ...rest }) => (
@@ -63,11 +89,17 @@ const Maybe = ({ component: Component, visible, ...rest }) => (
     : null
 );
 
-const getInitialFormData = () => ({ descr: '', date: '' });
+function uuidv4() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+} 
+const getInitialFormData = () => ({ descr: '', date: '', id: uuidv4() });
 const getLocalStore = () =>
   JSON.parse(localStorage.getItem('holidays') || "{}");
 const setLocalStore = (data) =>
   localStorage.setItem('holidays', JSON.stringify(data));
+  
 
 const App = () => {
   const [list, onListChange] = useState(getLocalStore);
@@ -78,7 +110,8 @@ const App = () => {
   }, [list]);
   const onEdit = (item) => {
     onItemChange(item);
-    onModeChange(item.date);
+    onModeChange(item.id);
+    window.scrollTo(0, 0);
   };
   const onDelete = (item) => {
     const isConfirmed = confirm(`Are you sure to delete the item: ${item.date} | ${item.descr}?`);
@@ -86,7 +119,7 @@ const App = () => {
       onListChange((xs) =>
         Object.keys(xs)
           .reduce(
-            (acc, key) => key === item.date ? acc : { ...acc, [key]: xs[key] },
+            (acc, key) => key === item.id ? acc : { ...acc, [key]: xs[key] },
             {}
           )
       );
@@ -95,7 +128,7 @@ const App = () => {
     }
   };
   const onSubmit = (eitem) => {
-    onListChange((xs) => ({ ...xs, [eitem.date]: eitem }));
+    onListChange((xs) => ({ ...xs, [eitem.id]: eitem }));
     onItemChange(getInitialFormData);
     onModeChange('add');
   };
@@ -104,7 +137,7 @@ const App = () => {
     onModeChange('add');
   };
   return (
-    <div>
+    <div class="container">
       <h2>Holidays CRUD</h2>
       <div>
         <Maybe
